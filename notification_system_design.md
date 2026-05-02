@@ -145,6 +145,13 @@ The query below is slow on 5M rows because it scans the entire notifications
 table without a supporting index, then sorts the result. This causes heavy I/O
 and CPU usage as the table grows.
 
+```sql
+SELECT *
+FROM notifications
+WHERE studentId = 1042 AND isRead = false
+ORDER BY createdAt DESC;
+```
+
 Recommended index:
 ```sql
 CREATE INDEX idx_notifications_student_read_created
