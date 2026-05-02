@@ -9,13 +9,16 @@ type DepotId = string | number;
 type Depot = {
   depotId?: DepotId;
   id?: DepotId;
+  ID?: DepotId;
   mechanicHours?: number;
   mechanic_hours?: number;
+  MechanicHours?: number;
   [key: string]: unknown;
 };
 
 type VehicleTask = {
   id?: string | number;
+  TaskID?: string;
   depotId?: DepotId;
   depot_id?: DepotId;
   impact?: number;
@@ -77,10 +80,10 @@ const toNumber = (value: unknown, fallback = 0): number => {
 };
 
 const getDepotId = (depot: Depot): DepotId =>
-  (depot.depotId ?? depot.id ?? "unknown") as DepotId;
+  (depot.depotId ?? depot.id ?? depot.ID ?? "unknown") as DepotId;
 
 const getMechanicHours = (depot: Depot): number =>
-  toNumber(depot.mechanicHours ?? depot.mechanic_hours ?? 0);
+  toNumber(depot.mechanicHours ?? depot.mechanic_hours ?? depot.MechanicHours ?? 0);
 
 const getVehicleDepotId = (vehicle: VehicleTask): DepotId | undefined =>
   (vehicle.depotId ?? vehicle.depot_id) as DepotId | undefined;
@@ -108,7 +111,8 @@ export const fetchDepots = async (): Promise<Depot[]> => {
       );
     }
 
-    const depots = Array.isArray(response.data) ? response.data : [];
+    const raw = response.data;
+    const depots = Array.isArray(raw) ? raw : Array.isArray(raw?.depots) ? raw.depots : [];
     await safeLog("info", `Fetched ${depots.length} depots`);
 
     return depots as Depot[];
@@ -135,7 +139,8 @@ export const fetchVehicles = async (): Promise<VehicleTask[]> => {
       );
     }
 
-    const vehicles = Array.isArray(response.data) ? response.data : [];
+    const raw = response.data;
+    const vehicles = Array.isArray(raw) ? raw : Array.isArray(raw?.vehicles) ? raw.vehicles : [];
     await safeLog("info", `Fetched ${vehicles.length} vehicles`);
 
     return vehicles as VehicleTask[];
@@ -145,6 +150,11 @@ export const fetchVehicles = async (): Promise<VehicleTask[]> => {
   }
 };
 
+/**
+ * Greedy knapsack scheduler for a single depot.
+ * Sorts tasks by impact/duration ratio and greedily selects tasks that fit
+ * within the depot's available mechanic hours (budget).
+ */
 export const scheduleForDepot = (
   depotId: DepotId,
   mechanicHours: number,
@@ -180,22 +190,8 @@ export const scheduleForDepot = (
     };
   }
 
-  const depotVehicles = vehicles.filter(
-    (vehicle) => getVehicleDepotId(vehicle) === depotId
-  );
-
-  if (depotVehicles.length === 0) {
-    void safeLog("warn", `No vehicles found for depot ${String(depotId)}`);
-
-    return {
-      depotId,
-      selectedTasks: [],
-      totalImpact: 0,
-      totalDuration: 0
-    };
-  }
-
-  const scoredVehicles = depotVehicles
+  // Vehicles are a shared pool — use all of them for each depot
+  const scoredVehicles = vehicles
     .map((vehicle) => {
       const impact = getImpact(vehicle);
       const duration = getDuration(vehicle);
@@ -250,8 +246,17 @@ export const scheduleForDepot = (
   };
 };
 
+/**
+ * Fetches all depots and vehicles, then schedules maintenance tasks
+ * for each depot to maximise total operational impact within budget.
+ */
 export const scheduleAllDepots = async (): Promise<ScheduleResult[]> => {
   const [depots, vehicles] = await Promise.all([fetchDepots(), fetchVehicles()]);
+
+  await safeLog(
+    "info",
+    `Scheduling across ${depots.length} depots with ${vehicles.length} vehicle tasks`
+  );
 
   return depots.map((depot) =>
     scheduleForDepot(getDepotId(depot), getMechanicHours(depot), vehicles)
