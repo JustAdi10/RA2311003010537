@@ -43,7 +43,7 @@ const requireNonEmpty = (value: string, label: string): void => {
   }
 };
 
-const validateStack = (stack: string): asserts stack is Stack => {
+const validateStack: (stack: string) => asserts stack is Stack = (stack) => {
   if (!VALID_STACKS.includes(stack as Stack)) {
     throw new Error(
       `Invalid stack "${stack}". Valid stacks: ${VALID_STACKS.join(", ")}.`
@@ -51,7 +51,7 @@ const validateStack = (stack: string): asserts stack is Stack => {
   }
 };
 
-const validateLevel = (level: string): asserts level is Level => {
+const validateLevel: (level: string) => asserts level is Level = (level) => {
   if (!VALID_LEVELS.includes(level as Level)) {
     throw new Error(
       `Invalid level "${level}". Valid levels: ${VALID_LEVELS.join(", ")}.`
@@ -59,7 +59,9 @@ const validateLevel = (level: string): asserts level is Level => {
   }
 };
 
-const validateBackendPackage = (pkg: string): asserts pkg is BackendPackage => {
+const validateBackendPackage: (pkg: string) => asserts pkg is BackendPackage = (
+  pkg
+) => {
   if (!VALID_BACKEND_PACKAGES.includes(pkg as BackendPackage)) {
     throw new Error(
       `Invalid backend package "${pkg}". Valid backend packages: ${VALID_BACKEND_PACKAGES.join(", ")}.`
